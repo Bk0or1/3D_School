@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive 3D E-School | Multimodal AI Tutor</title>
+    <meta name="description" content="Interactive 3D STEM Education Platform with Multimodal Gemini AI Tutoring for Biology (Human Anatomy), Physics, and Chemistry. Built for Hacktoberfest Rwanda x Build54 Africa.">
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    
+    <!-- Markdown Parser -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+
+    <!-- Three.js (r128) & OrbitControls -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body class="dark-theme">
+    <div class="app-layout">
+        <!-- Top Navigation Bar -->
+        <header class="app-header">
+            <div class="header-brand">
+                <div class="brand-logo-glow">
+                    <i data-lucide="box" class="brand-icon"></i>
+                </div>
+                <div class="brand-titles">
+                    <div class="brand-title-row">
+                        <h1 class="brand-name">3D E-School</h1>
+                        <span class="hackathon-tag">Hacktoberfest Rwanda</span>
+                    </div>
+                    <span class="brand-subtitle">Interactive 3D STEM Learning + Gemini Multimodal Tutor</span>
+                </div>
+            </div>
+
+            <!-- Subject Navigation Tabs with direct onclick handlers -->
+            <nav class="subject-nav">
+                <button class="nav-tab active" data-subject="biology" id="tab-biology" onclick="window.switchSubject('biology')">
+                    <span class="tab-emoji">🫀</span>
+                    <span class="tab-text">Biology (Anatomy)</span>
+                </button>
+                <button class="nav-tab" data-subject="physics" id="tab-physics" onclick="window.switchSubject('physics')">
+                    <span class="tab-emoji">⚡</span>
+                    <span class="tab-text">Physics (Projectile)</span>
+                </button>
+                <button class="nav-tab" data-subject="chemistry" id="tab-chemistry" onclick="window.switchSubject('chemistry')">
+                    <span class="tab-emoji">🧪</span>
+                    <span class="tab-text">Chemistry (Beaker Lab)</span>
+                </button>
+            </nav>
+
+            <!-- Header Action Controls -->
+            <div class="header-actions">
+                <div class="ai-status-pill" id="ai-status-indicator" title="AI Multimodal Tutor status">
+                    <span class="status-dot"></span>
+                    <span class="status-label" id="status-label">AI Ready</span>
+                </div>
+                <button class="icon-btn" id="btn-open-settings" onclick="window.openSettings()" title="Configure Gemini API Key">
+                    <i data-lucide="key"></i>
+                </button>
+                <button class="icon-btn" id="btn-open-guide" onclick="window.openGuide()" title="Hackathon Guide & Features">
+                    <i data-lucide="help-circle"></i>
+                </button>
+                <button class="icon-btn" id="btn-fullscreen" onclick="window.toggleFullscreen()" title="Toggle Fullscreen">
+                    <i data-lucide="maximize-2"></i>
+                </button>
+            </div>
+        </header>
+
+        <!-- Main Workspace Split Grid -->
+        <main class="workspace-grid">
+            <!-- Left: 3D Visualization Area -->
+            <section class="viewport-section" id="viewport-section">
+                <div id="canvas-container" class="canvas-wrapper">
+                    <!-- Top HUD: Scene Title & Mode -->
+                    <div class="viewport-hud-top">
+                        <div class="scene-badge" id="scene-title-badge">
+                            <span class="scene-badge-icon" id="scene-icon">🫀</span>
+                            <div>
+                                <h2 class="scene-badge-title" id="scene-title">3D Human Body Anatomy</h2>
+                                <span class="scene-badge-desc" id="scene-desc">Interactive transparent torso with internal Liver, Heart, and Lungs</span>
+                            </div>
+                        </div>
+
+                        <!-- Canvas Quick Actions Bar -->
+                        <div class="viewport-quick-tools">
+                            <button class="snap-ai-pill-btn" id="btn-snap-view" onclick="window.triggerSnapCanvas()" title="Capture 3D View and attach to AI Tutor">
+                                <i data-lucide="camera" class="btn-icon"></i>
+                                <span>Snap 3D & Ask AI</span>
+                                <span class="hotkey-badge">📸</span>
+                            </button>
+                            <button class="hud-icon-btn" id="btn-reset-cam" onclick="window.resetCamera()" title="Reset Camera View">
+                                <i data-lucide="refresh-cw"></i>
+                            </button>
+                            <button class="hud-icon-btn" id="btn-toggle-rotate" onclick="window.toggleRotation()" title="Toggle Auto-Rotation">
+                                <i data-lucide="rotate-3d"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- WebGL Canvas -->
+                    <canvas id="three-canvas"></canvas>
+
+                    <!-- Interactive Raycast Info Tag (Anatomy Organ Tooltip) -->
+                    <div id="raycast-tooltip" class="canvas-3d-tooltip hidden">
+                        <div class="tooltip-header">
+                            <span id="tooltip-organelle-icon">🫀</span>
+                            <strong id="tooltip-organelle-title">Heart (Cor)</strong>
+                        </div>
+                        <p id="tooltip-organelle-desc">Four-chambered muscular organ pumping blood through systemic and pulmonary circulation.</p>
+                        <button class="tooltip-ask-btn" id="btn-ask-about-selected" onclick="window.askAboutSelected()">Ask AI Tutor about this</button>
+                    </div>
+
+                    <!-- Bottom HUD: Interactive Laboratory Control Panel -->
+                    <div class="viewport-hud-bottom">
+                        <!-- Biology / Human Anatomy Controls -->
+                        <div class="subject-controls" id="controls-biology">
+                            <div class="control-group">
+                                <label><i data-lucide="eye"></i> Focus Organ:</label>
+                                <div class="btn-pill-group" id="organelle-select-group">
+                                    <button class="pill-option active" data-organelle="all" onclick="window.focusOrganelle('all')">All Body</button>
+                                    <button class="pill-option" data-organelle="heart" onclick="window.focusOrganelle('heart')">Heart ❤️</button>
+                                    <button class="pill-option" data-organelle="lungs" onclick="window.focusOrganelle('lungs')">Lungs 🫁</button>
+                                    <button class="pill-option" data-organelle="liver" onclick="window.focusOrganelle('liver')">Liver 🟤</button>
+                                    <button class="pill-option" data-organelle="stomach" onclick="window.focusOrganelle('stomach')">Stomach 🥣</button>
+                                </div>
+                            </div>
+                            <div class="control-group">
+                                <button class="action-btn-sm" id="btn-explode-cell" onclick="window.toggleBiologyExplode()">
+                                    <i data-lucide="maximize"></i> <span id="explode-btn-text">Dissect Organs</span>
+                                </button>
+                                <button class="action-btn-sm" id="btn-slice-cell" onclick="window.toggleBiologySlice()">
+                                    <i data-lucide="eye"></i> <span id="slice-btn-text">Ghost Torso</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Physics Controls -->
+                        <div class="subject-controls hidden" id="controls-physics">
+                            <div class="control-slider-grid">
+                                <div class="slider-box">
+                                    <div class="slider-label-row">
+                                        <span><i data-lucide="compass"></i> Angle (θ)</span>
+                                        <b id="val-angle">45°</b>
+                                    </div>
+                                    <input type="range" id="input-angle" min="10" max="85" value="45" step="1" oninput="window.syncPhysicsUI()">
+                                </div>
+                                <div class="slider-box">
+                                    <div class="slider-label-row">
+                                        <span><i data-lucide="zap"></i> Velocity (v₀)</span>
+                                        <b id="val-speed">25 m/s</b>
+                                    </div>
+                                    <input type="range" id="input-speed" min="5" max="50" value="25" step="1" oninput="window.syncPhysicsUI()">
+                                </div>
+                                <div class="slider-box">
+                                    <div class="slider-label-row">
+                                        <span><i data-lucide="globe"></i> Gravity (g)</span>
+                                        <select id="select-gravity" class="hud-select" onchange="window.syncPhysicsUI()">
+                                            <option value="9.8">Earth (9.8 m/s²)</option>
+                                            <option value="1.62">Moon (1.62 m/s²)</option>
+                                            <option value="3.71">Mars (3.71 m/s²)</option>
+                                            <option value="24.79">Jupiter (24.79 m/s²)</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="physics-action-row">
+                                <button class="action-btn-primary" id="btn-launch-projectile" onclick="window.launchProjectile()">
+                                    <i data-lucide="play"></i> Launch Projectile
+                                </button>
+                                <button class="action-btn-secondary" id="btn-reset-projectile" onclick="window.resetProjectile()">
+                                    <i data-lucide="rotate-ccw"></i> Reset
+                                </button>
+                                <div class="telemetry-readout">
+                                    <div class="telemetry-item">Range: <span id="hud-range">63.7 m</span></div>
+                                    <div class="telemetry-item">Max H: <span id="hud-maxh">15.9 m</span></div>
+                                    <div class="telemetry-item">Time: <span id="hud-time">3.60 s</span></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Chemistry Controls (Manual Substance Selection Upgrade) -->
+                        <div class="subject-controls hidden" id="controls-chemistry">
+                            <div class="substance-selector-container">
+                                <div class="substance-pickers-row">
+                                    <div class="substance-select-box">
+                                        <label for="select-substance-a"><i data-lucide="flask-conical"></i> Substance A:</label>
+                                        <select id="select-substance-a">
+                                            <option value="hcl">HCl Acid (Hydrochloric 1.0M)</option>
+                                            <option value="water">Water (Pure H₂O)</option>
+                                            <option value="vinegar">Vinegar (Acetic Acid CH₃COOH)</option>
+                                            <option value="cuso4">Copper Sulfate (CuSO₄ Solution)</option>
+                                        </select>
+                                    </div>
+                                    <div class="substance-select-box">
+                                        <label for="select-substance-b"><i data-lucide="beaker"></i> Substance B:</label>
+                                        <select id="select-substance-b">
+                                            <option value="naoh">NaOH Base (Sodium Hydroxide)</option>
+                                            <option value="baking_soda">Baking Soda (Sodium Bicarbonate NaHCO₃)</option>
+                                            <option value="potassium">Potassium (Reactive Alkali Metal K)</option>
+                                            <option value="ammonia">Ammonia Solution (NH₃)</option>
+                                            <option value="zinc">Zinc Metal Granules (Zn)</option>
+                                        </select>
+                                    </div>
+                                    <button class="btn-chem-react-hero" id="btn-chem-react" onclick="window.mixAndReact()" title="Mix chosen substances and trigger chemical reaction">
+                                        <i data-lucide="sparkles"></i> Mix / React
+                                    </button>
+                                </div>
+                                <div class="chemistry-action-row">
+                                    <button class="action-btn-sm chem-btn" id="btn-chem-stir" onclick="window.toggleStirring()">
+                                        <i data-lucide="loader"></i> Stir Solution
+                                    </button>
+                                    <button class="action-btn-sm chem-btn secondary" id="btn-chem-reset" onclick="window.resetChemistryBeaker()">
+                                        <i data-lucide="trash-2"></i> Clean Beaker
+                                    </button>
+                                    <div class="chem-telemetry">
+                                        <div class="telemetry-item">pH: <span id="hud-ph">7.0</span></div>
+                                        <div class="telemetry-item">Temp: <span id="hud-temp">22.0°C</span></div>
+                                        <div class="telemetry-item">Reaction: <span id="hud-rxn">Neutral Water</span></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Right: AI Multimodal Tutor Chat Panel -->
+            <aside class="chat-section">
+                <!-- Tutor Persona Header -->
+                <div class="tutor-header">
+                    <div class="tutor-profile">
+                        <div class="tutor-avatar" id="tutor-avatar">🧬</div>
+                        <div class="tutor-details">
+                            <div class="tutor-name-row">
+                                <h3 class="tutor-name" id="tutor-name">Dr. Helix</h3>
+                                <span class="ai-badge">Gemini / Gemma 4</span>
+                            </div>
+                            <p class="tutor-specialty" id="tutor-specialty">3D Human Anatomy & Organ Specialist</p>
+                        </div>
+                    </div>
+                    <div class="tutor-controls">
+                        <button class="chat-icon-btn" id="btn-toggle-speech" onclick="window.toggleSpeech()" title="Toggle Text-to-Speech Voice Narration">
+                            <i data-lucide="volume-2" id="speech-icon"></i>
+                        </button>
+                        <button class="chat-icon-btn" id="btn-clear-chat" onclick="window.clearChat()" title="Clear Chat History">
+                            <i data-lucide="trash"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Chat Messages Scroll Container -->
+                <div class="chat-messages" id="chat-messages">
+                    <!-- Tutor messages inserted dynamically -->
+                </div>
+
+                <!-- Quick Inquiry Chips -->
+                <div class="quick-inquiry-bar" id="quick-inquiry-chips">
+                    <span class="chips-label">Ask Tutor:</span>
+                    <button class="inquiry-chip" onclick="window.sendQuickQuery('What are the key functions of the Liver, Heart, and Lungs in the human body?')">
+                        🫀 Key Organ Functions
+                    </button>
+                    <button class="inquiry-chip" onclick="window.sendQuickQuery('Explain the chemical reaction and equation occurring right now in the beaker!')">
+                        🧪 Explain Reaction Formula
+                    </button>
+                    <button class="inquiry-chip" onclick="window.sendQuickQuery('Quiz me with 3 questions about this 3D model!')">
+                        🧠 Quiz Me
+                    </button>
+                </div>
+
+                <!-- Snapshot Preview Thumbnail Bar -->
+                <div class="snap-preview-container hidden" id="snap-preview-box">
+                    <div class="snap-thumb-wrapper">
+                        <img id="snap-preview-img" alt="Captured 3D Canvas View">
+                        <button class="snap-remove-btn" id="btn-remove-snap" onclick="window.clearSnapshot()" title="Remove Snapshot">
+                            <i data-lucide="x"></i>
+                        </button>
+                    </div>
+                    <div class="snap-meta">
+                        <span class="snap-title"><i data-lucide="check-circle-2"></i> 3D Snapshot Attached</span>
+                        <span class="snap-hint" id="snap-meta-hint">Gemini Multimodal Vision will inspect this view</span>
+                    </div>
+                </div>
+
+                <!-- Chat Input Form -->
+                <form class="chat-input-form" id="chat-form">
+                    <div class="input-actions-bar">
+                        <button type="button" class="tool-btn-camera" id="btn-snap-inline" onclick="window.triggerSnapCanvas()" title="Capture 3D Canvas View">
+                            <i data-lucide="camera"></i>
+                            <span>Snap 3D View</span>
+                        </button>
+                    </div>
+                    <div class="input-wrapper">
+                        <textarea 
+                            id="user-input" 
+                            rows="1" 
+                            placeholder="Ask your AI tutor about the 3D model or snapshot..." 
+                            required></textarea>
+                        <button type="submit" class="send-btn" id="btn-send" title="Send message">
+                            <i data-lucide="send"></i>
+                        </button>
+                    </div>
+                </form>
+            </aside>
+        </main>
+    </div>
+
+    <!-- Gemini API Key Settings Modal -->
+    <div class="modal-backdrop hidden" id="modal-settings">
+        <div class="modal-card">
+            <div class="modal-header">
+                <div class="modal-title-row">
+                    <i data-lucide="key" class="modal-icon"></i>
+                    <h3>Gemini API Configuration</h3>
+                </div>
+                <button class="modal-close-btn" onclick="window.closeSettings()"><i data-lucide="x"></i></button>
+            </div>
+            <div class="modal-body">
+                <p class="modal-text">
+                    The app features a <strong>Built-in Intelligent Educational AI Simulator</strong> for instant offline demoing.
+                    To enable <strong>live multimodal vision</strong> using Gemini 1.5 Flash / Gemma 4, enter your Google AI Studio API key:
+                </p>
+                <div class="form-group">
+                    <label for="input-api-key">Gemini API Key:</label>
+                    <input type="password" id="input-api-key" placeholder="AIzaSy..." class="modal-input">
+                    <small class="form-hint">Stored securely in your local browser session.</small>
+                </div>
+                <div class="modal-info-box">
+                    <i data-lucide="info"></i>
+                    <span>Get a free API key at <a href="https://aistudio.google.com/" target="_blank" rel="noopener">aistudio.google.com</a></span>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-cancel" onclick="window.closeSettings()">Cancel</button>
+                <button class="btn-save" onclick="window.saveApiKey()">Save & Connect</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Help & Hackathon Guide Modal -->
+    <div class="modal-backdrop hidden" id="modal-guide">
+        <div class="modal-card guide-card">
+            <div class="modal-header">
+                <div class="modal-title-row">
+                    <i data-lucide="sparkles" class="modal-icon accent"></i>
+                    <h3>Interactive 3D E-School Guide</h3>
+                </div>
+                <button class="modal-close-btn" onclick="window.closeGuide()"><i data-lucide="x"></i></button>
+            </div>
+            <div class="modal-body guide-content">
+                <h4>🏆 Hacktoberfest Rwanda x Build54 Africa Hackathon</h4>
+                <p>This prototype demonstrates how multimodal AI paired with real-time 3D web visualizations transforms STEM education in African classrooms and beyond.</p>
+                <div class="guide-feature-grid">
+                    <div class="feature-item">
+                        <span class="feature-icon">🫀</span>
+                        <div>
+                            <strong>Human Anatomy Laboratory</strong>
+                            <p>Interactive 3D stylized human body with transparent torso. Click on the <strong>Liver</strong>, <strong>Heart</strong>, or <strong>Lungs</strong> to highlight and inspect physiological functions.</p>
+                        </div>
+                    </div>
+                    <div class="feature-item">
+                        <span class="feature-icon">⚡</span>
+                        <div>
+                            <strong>Physics Kinematics Lab</strong>
+                            <p>Ballistic projectile simulation. Adjust launch angle θ, speed v₀, and planetary gravity (Earth, Moon, Mars). Live telemetry plots parabolic paths.</p>
+                        </div>
+                    </div>
+                    <div class="feature-item">
+                        <span class="feature-icon">🧪</span>
+                        <div>
+                            <strong>Chemistry Substance Lab</strong>
+                            <p>Choose <strong>Substance A</strong> (HCl, Water, Vinegar, CuSO₄) and <strong>Substance B</strong> (NaOH, Baking Soda, Potassium, Ammonia, Zinc). Click <strong>Mix / React</strong> to trigger real-time color changes, effervescence, or metal explosions!</p>
+                        </div>
+                    </div>
+                    <div class="feature-item">
+                        <span class="feature-icon">📸</span>
+                        <div>
+                            <strong>Multimodal "Snap & Ask"</strong>
+                            <p>Click "Snap 3D & Ask AI" to capture the exact canvas frame. Gemini analyzes both your screenshot and simulation telemetry.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-save" onclick="window.closeGuide()">Start Exploring</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Application Script -->
+    <script src="/static/main.js"></script>
+    <script>
+        if (window.lucide) {
+            lucide.createIcons();
+        }
+    </script>
+</body>
+</html>
